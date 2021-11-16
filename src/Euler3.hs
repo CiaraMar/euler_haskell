@@ -1,6 +1,6 @@
 module Euler3 where
 
-import Lib (primeFactors)
+import Data.Numbers.Primes (primeFactors)
 
 {-
 >>> euler3

@@ -1,6 +1,6 @@
 module Lib where
 
-import Data.Numbers.Primes (wheelSieve, primeFactors)
+import Data.Numbers.Primes (wheelSieve)
 
 {-
 >>> take 20 primes
