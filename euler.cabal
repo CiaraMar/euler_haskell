@@ -30,6 +30,7 @@ library
       Euler3
       Euler4
       Euler5
+      Euler6
       Lib
   other-modules:
       Paths_euler

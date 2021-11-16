@@ -52,4 +52,13 @@ merge (x:xs) (y:ys) = x : y : merge xs ys
 232792560
 -}
 lcmSequence :: [Integer]
-lcmSequence = scanl1 (\l n -> l * div n (gcd l n)) [1..]
+lcmSequence = scanl1 lcm [1..]
+
+sumToN :: Integral a => a -> a
+sumToN n = (n * (n + 1)) `div` 2
+
+squareSumToN :: Integral a => a -> a
+squareSumToN n = (n * (n + 1) * (2 *n + 1)) `div` 6
+
+square :: Num a => a -> a
+square n = n * n
