@@ -1,3 +1,5 @@
+module Euler6 where
+
 import           Lib (squareSumToN, sumToN, square)
 
 {-

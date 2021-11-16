@@ -1,3 +1,5 @@
+module Euler5 where
+
 import           Lib (lcmSequence)
 
 {-

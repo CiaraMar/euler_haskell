@@ -1,3 +1,5 @@
+module Euler4 where
+    
 {-
 Start with 998899 because 999999 is too big
 >>> take 5 palindromes

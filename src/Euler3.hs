@@ -1,3 +1,5 @@
+module Euler3 where
+
 import Lib (primeFactors)
 
 {-
