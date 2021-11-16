@@ -1,4 +1,5 @@
 module Euler8 where
+import           Data.Maybe (fromJust)
 
 input :: [Integer]
 input = [7, 3, 1, 6, 7, 1, 7, 6, 5, 3, 1, 3, 3, 0, 6, 2, 4, 9, 1, 9, 2, 2, 5, 1, 1, 9, 6, 7, 4, 4, 2, 6, 5, 7, 4, 7, 4, 2, 3, 5,
@@ -27,17 +28,21 @@ input = [7, 3, 1, 6, 7, 1, 7, 6, 5, 3, 1, 3, 3, 0, 6, 2, 4, 9, 1, 9, 2, 2, 5, 1,
          5, 4, 1, 0, 0, 2, 2, 5, 6, 9, 8, 3, 1, 5, 5, 2, 0, 0, 0, 5, 5, 9, 3, 5, 7, 2, 9, 7, 2, 5, 7, 1, 6, 3, 6, 2, 6, 9, 5, 6,
          1, 8, 8, 2, 6, 7, 0, 4, 2, 8, 2, 5, 2, 4, 8, 3, 6, 0, 0, 8, 2, 3, 2, 5, 7, 5, 3, 0, 4, 2, 0, 7, 5, 2, 9, 6, 3, 4, 5, 0]
 
+fillOffsetZip :: Int -> [a] -> [(Maybe a, a)]
+fillOffsetZip length values = zip (replicate length Nothing ++ map Just values) values
+
 {-
->>> fmap (\(x y z) -> x) (buildProduct 13 input)
-Parse error in pattern: x
+>>> fmap fst (buildProduct 13 input)
+Just 5000940
 -}
-buildProduct :: Int -> [Integer] -> Maybe (Integer, [(Integer, Integer)])
-buildProduct length values = build length 1 values []
+buildProduct :: (Eq t, Num t) => Int -> [t] -> Maybe (t, [(Maybe t, t)])
+buildProduct length = build 1 . split . fillOffsetZip length
     where
-        build 0 prod vs os     = Just (prod, zip (reverse os ++ vs) vs)
-        build n prod (0:vs) os = build length 1 vs []
-        build n prod (v:vs) os = build (n-1) (prod * v) vs (v:os)
-        build _ _ [] _         = Nothing
+        split = splitAt length
+        build _ ([], [])           = Nothing
+        build prod ([], rs)        = Just (prod, rs)
+        build prod ((_, 0):ls, rs) = build 1 (split (ls ++ rs))
+        build prod ((_, l):ls, rs) = build (prod * l) (ls, rs)
 
 {-
 >>> slidingProduct 13 input
@@ -47,9 +52,9 @@ slidingProduct :: Int -> [Integer] -> [Integer]
 slidingProduct length = restart
     where
         slide _ ((_, 0):slices) = restart (map snd slices)
-        slide prod ((a, b):slices) = b':slide b' slices
+        slide prod ((Just a, b):slices) = b':slide b' slices
             where b' = b * div prod a
-        slide _ [] = []
+        slide _ _ = []
         restart ls = case buildProduct length ls of
             Just (newProd, slices) -> newProd:slide newProd slices
             Nothing                -> []
