@@ -1,6 +1,7 @@
 module Lib where
 
-import Data.Numbers.Primes (wheelSieve)
+import           Data.Numbers.Primes (wheelSieve)
+import           Data.Sort
 
 {-
 >>> take 20 primes
@@ -45,3 +46,24 @@ squareSumToN n = (n * (n + 1) * (2 *n + 1)) `div` 6
 
 square :: Num a => a -> a
 square n = n * n
+
+{-
+[1,2,3]
+[1:ps | ps <- [2:ps | ps <- [3:ps <- [[]]]]]
+[1:ps | ps <- [2:ps | ps <- [[3], []]]]
+[1:ps | ps <- [[2, 3], [2], [3], []]]
+[[1,2,3],[1,2],[1,3],[1],[2,3],[2],[3],[]]
+>>> powerset [1,2,3]
+[[1,2,3],[1,2],[1,3],[1],[2,3],[2],[3],[]]
+-}
+powerset :: [a] -> [[a]]
+powerset []     = [[]]
+powerset (x:xs) = [x:ps | ps <- psx] ++ psx
+    where psx = powerset xs
+
+{-
+>>> factors 60
+[1,2,3,4,5,6,10,12,15,20,30,60]
+-}
+factors :: Integer -> [Integer]
+factors = uniqueSort . map product . powerset . multiplePrimeFactors

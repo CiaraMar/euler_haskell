@@ -23,6 +23,8 @@ dependencies:
 - base >= 4.7 && < 5
 - array >= 0.5.4.0
 - primes >= 0.2.1.0
+- mtl >= 2.2.2
+- sort >= 1.0.0.0
 
 library:
   source-dirs: src
