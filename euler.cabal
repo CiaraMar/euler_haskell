@@ -27,6 +27,7 @@ library
   exposed-modules:
       Euler1
       Euler10
+      Euler11
       Euler2
       Euler3
       Euler4
