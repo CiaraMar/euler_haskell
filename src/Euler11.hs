@@ -53,15 +53,14 @@ euler11Array = listArray ((1, 1), (20, 20)) euler11Input
 [[8],[2,49]]
 -}
 walks2D :: (Ix a) => (a, a) -> (a, a) -> [[(a, a)]]
-walks2D (a, b) (a', b') = lefts ++ downs ++ upperRight ++ lowerLeft ++ lowerLeft' ++ upperRight'
+walks2D (a, b) (a', b') = lefts ++ downs ++ upperRight ++ lowerLeft ++ upperLeft ++ lowerRight
     where
         downs = [range ((a, c), (a', c)) | c <-range (b, b')]
         lefts = [range ((c, b), (c, b')) | c <-range (a, a')]
         upperRight = [zip (range (a, a')) (range (c, b')) | c <-range (a, b')]
         lowerLeft = [zip (range (c, a')) (range (b, b')) | c <-range (a, b')]
-        -- TODO sort out which of these two is wrong...
-        lowerLeft' = [zip (reverse (range (a, a'))) (range (c, b')) | c <-range (a, b')]
-        upperRight' = [zip (range (a, a')) (reverse (range (b, c))) | c <-range (a, b')]
+        upperLeft = [zip (reverse (range (a, a'))) (range (c, b')) | c <-range (a, b')]
+        lowerRight = [zip (range (a, a')) (reverse (range (b, c))) | c <-range (a, b')]
 
 {-
 >>> take 2 $ concatMap (slidingProduct 4) euler11Walks
@@ -83,22 +82,3 @@ euler11Walks = (map . map) (euler11Array !) $ walks2D (1, 1) (20, 20)
 -}
 euler11 :: Int
 euler11 = maximum . concatMap (slidingProduct 4) $ euler11Walks
-
-
-senses :: [(Int, Int) -> (Int, Int)]
-senses = [(+1) *** id,(+1) *** (+1), id *** (+1), (+1) *** (\n -> n - 1)]
-
-inArray a i = inRange (bounds a) i
-
-prods :: Array (Int, Int) Int -> [(Int, [Int])]
-prods a = [(product xs, xs) | i <- range $ bounds a,
-                        s <- senses,
-                        let is = take 4 $ iterate s i,
-                        all (inArray a) is,
-                        let xs = map (a!) is]
-
-{-
->>> euler11'
-(70600674,[89,94,97,87])
--}
-euler11' = maximum . prods $ euler11Array
