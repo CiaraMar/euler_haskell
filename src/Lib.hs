@@ -1,7 +1,10 @@
 module Lib where
 
-import           Data.Numbers.Primes (wheelSieve)
-import           Data.Sort
+import           Control.Arrow
+import           Data.List                   (group)
+import           Data.Numbers.Primes         (wheelSieve)
+import           Data.Sort                   (sort, sortBy)
+import           Math.Combinatorics.Multiset
 
 {-
 >>> take 20 primes
@@ -12,13 +15,13 @@ primes = wheelSieve 100
 
 {-
 >>> multiplePrimeFactors 60
-[2,2,3,5]
+MS {toCounts = [(2,2),(3,1),(5,1)]}
 
->>> multiplePrimeFactors 232792560
-[2,2,2,2,3,3,5,7,11,13,17,19]
+>>> multiplePrimeFactors 62370000
+MS {toCounts = [(2,4),(3,4),(5,4),(7,1),(11,1)]}
 -}
-multiplePrimeFactors :: Integer -> [Integer]
-multiplePrimeFactors n = factor n primes
+multiplePrimeFactors :: Integer -> Multiset Integer
+multiplePrimeFactors n = fromList $ factor n primes
                 where
                     factor _ [] = []
                     factor m (p:xs)
@@ -62,11 +65,21 @@ powerset (x:xs) = [x:ps | ps <- psx] ++ psx
     where psx = powerset xs
 
 {-
+>>> multiPowerSet . fromList $ [2, 2, 5]
+[MS {toCounts = []},MS {toCounts = [(5,1)]},MS {toCounts = [(2,1)]},MS {toCounts = [(2,1),(5,1)]},MS {toCounts = [(2,2)]},MS {toCounts = [(2,2),(5,1)]}]
+-}
+multiPowerSet :: Multiset a -> [Multiset a]
+multiPowerSet ms = concatMap (`kSubsets` ms) [0..size ms]
+
+{-
+>>> splits  . fromList $ [5, 5, 2]
+[(MS {toCounts = []},MS {toCounts = [(2,1),(5,2)]}),(MS {toCounts = [(5,1)]},MS {toCounts = [(2,1),(5,1)]}),(MS {toCounts = [(5,2)]},MS {toCounts = [(2,1)]}),(MS {toCounts = [(2,1)]},MS {toCounts = [(5,2)]}),(MS {toCounts = [(2,1),(5,1)]},MS {toCounts = [(5,1)]}),(MS {toCounts = [(2,1),(5,2)]},MS {toCounts = []})]
+
 >>> factors 60
 [1,2,3,4,5,6,10,12,15,20,30,60]
 -}
 factors :: Integer -> [Integer]
-factors = uniqueSort . map product . powerset . multiplePrimeFactors
+factors = sort . map (product .toList) . multiPowerSet . multiplePrimeFactors
 
 fillOffsetZip :: Int -> [a] -> [(Maybe a, a)]
 fillOffsetZip length values = zip (replicate length Nothing ++ map Just values) values
@@ -103,3 +116,46 @@ chunks :: Int -> [a] -> [[a]]
 chunks _ [] = []
 chunks n xs = left:chunks n right
     where (left, right) = splitAt n xs
+
+applyExps :: (Integral a) => [a] -> [a] -> a
+applyExps ps es = product $ zipWith (^) ps es
+
+{-
+>>> numFactors 62370000
+500
+-}
+numFactors :: Integer -> Int
+numFactors = product . map (+1) . getCounts . multiplePrimeFactors
+
+filterAccordingTo :: [Bool] -> [a] -> [a]
+filterAccordingTo bs xs = map snd . filter fst $ zip bs xs
+
+{-
+>>> permutations . fromCounts $ [(True, 2)]
+[[True,True]]
+
+>>> take 10 $ kPrimes 3
+[[2,3,5],[2,3,7],[2,5,7],[3,5,7],[2,3,11],[2,7,11],[2,5,11],[5,7,11],[3,5,11],[3,7,11]]
+
+TODO make filter creation cheaper by simply adding an extra False where it makes sense (i.e. at the right of all True's)
+-}
+kPrimes :: Int -> [[Integer]]
+kPrimes k = [filterAccordingTo filt primes | filt <- filters]
+    where
+        filters = replicate k True:concatMap (map (++ [True])) [permutations . fromCounts $ [(True, k - 1), (False, i)] |i <- [1..]]
+
+{-
+>>> reverse . sort . permutations . fromCounts . map (\(x, c) -> (x - 1, c)) . toCounts $ multiplePrimeFactors 500
+[[4,4,4,1,1],[4,4,1,4,1],[4,4,1,1,4],[4,1,4,4,1],[4,1,4,1,4],[4,1,1,4,4],[1,4,4,4,1],[1,4,4,1,4],[1,4,1,4,4],[1,1,4,4,4]]
+
+>>> take 10 $ numbersWithNFactors 500
+[62370000,171143280,664115760,792330000,3074610000,8436729840,2674113750,10376808750,28473963210,131823903750]
+
+[62370000,171143280,664115760,792330000,3074610000,8436729840,2674113750,10376808750,28473963210,131823903750]
+-}
+numbersWithNFactors :: Integer -> [Integer]
+numbersWithNFactors n = concatMap nFactorNums $ kPrimes $ size exponents
+    where
+        exponents = fromCounts . map (\(x, c) -> (x - 1, c)) . toCounts $ multiplePrimeFactors n
+        exponentPerms = sortBy (flip compare) . permutations $ exponents
+        nFactorNums ps = map (applyExps ps) exponentPerms
