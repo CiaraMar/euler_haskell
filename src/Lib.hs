@@ -2,9 +2,11 @@ module Lib where
 
 import           Control.Arrow
 import           Data.List                   (group)
+import           Data.Maybe                  (fromMaybe)
 import           Data.Numbers.Primes         (wheelSieve)
+import qualified Data.PQueue.Min             as PQ
 import           Data.Sort                   (sort, sortBy)
-import           Math.Combinatorics.Multiset
+import qualified Math.Combinatorics.Multiset as MS
 
 {-
 >>> take 20 primes
@@ -20,8 +22,8 @@ MS {toCounts = [(2,2),(3,1),(5,1)]}
 >>> multiplePrimeFactors 62370000
 MS {toCounts = [(2,4),(3,4),(5,4),(7,1),(11,1)]}
 -}
-multiplePrimeFactors :: Integer -> Multiset Integer
-multiplePrimeFactors n = fromList $ factor n primes
+multiplePrimeFactors :: Integer -> MS.Multiset Integer
+multiplePrimeFactors n = MS.fromList $ factor n primes
                 where
                     factor _ [] = []
                     factor m (p:xs)
@@ -68,8 +70,8 @@ powerset (x:xs) = [x:ps | ps <- psx] ++ psx
 >>> multiPowerSet . fromList $ [2, 2, 5]
 [MS {toCounts = []},MS {toCounts = [(5,1)]},MS {toCounts = [(2,1)]},MS {toCounts = [(2,1),(5,1)]},MS {toCounts = [(2,2)]},MS {toCounts = [(2,2),(5,1)]}]
 -}
-multiPowerSet :: Multiset a -> [Multiset a]
-multiPowerSet ms = concatMap (`kSubsets` ms) [0..size ms]
+multiPowerSet :: MS.Multiset a -> [MS.Multiset a]
+multiPowerSet ms = concatMap (`MS.kSubsets` ms) [0..MS.size ms]
 
 {-
 >>> splits  . fromList $ [5, 5, 2]
@@ -79,7 +81,7 @@ multiPowerSet ms = concatMap (`kSubsets` ms) [0..size ms]
 [1,2,3,4,5,6,10,12,15,20,30,60]
 -}
 factors :: Integer -> [Integer]
-factors = sort . map (product .toList) . multiPowerSet . multiplePrimeFactors
+factors = sort . map (product . MS.toList) . multiPowerSet . multiplePrimeFactors
 
 fillOffsetZip :: Int -> [a] -> [(Maybe a, a)]
 fillOffsetZip length values = zip (replicate length Nothing ++ map Just values) values
@@ -125,37 +127,54 @@ applyExps ps es = product $ zipWith (^) ps es
 500
 -}
 numFactors :: Integer -> Int
-numFactors = product . map (+1) . getCounts . multiplePrimeFactors
+numFactors = product . map (+1) . MS.getCounts . multiplePrimeFactors
 
 filterAccordingTo :: [Bool] -> [a] -> [a]
 filterAccordingTo bs xs = map snd . filter fst $ zip bs xs
 
 {-
->>> permutations . fromCounts $ [(True, 2)]
-[[True,True]]
-
->>> take 10 $ kPrimes 3
-[[2,3,5],[2,3,7],[2,5,7],[3,5,7],[2,3,11],[2,7,11],[2,5,11],[5,7,11],[3,5,11],[3,7,11]]
+>>> take 3 $ kPrimeGroups 4
+[[[2,3,5,7]],[[2,3,5,11],[2,3,7,11],[2,5,7,11],[3,5,7,11]],[[2,3,5,13],[2,3,11,13],[2,3,7,13],[2,7,11,13],[2,5,7,13],[2,5,11,13],[5,7,11,13],[3,5,7,13],[3,5,11,13],[3,7,11,13]]]
 
 TODO make filter creation cheaper by simply adding an extra False where it makes sense (i.e. at the right of all True's)
 -}
-kPrimes :: Int -> [[Integer]]
-kPrimes k = [filterAccordingTo filt primes | filt <- filters]
+kPrimeGroups :: Int -> [[[Integer]]]
+kPrimeGroups k = [[filterAccordingTo filt primes | filt <- filters] | filters <- filterGroups]
     where
-        filters = replicate k True:concatMap (map (++ [True])) [permutations . fromCounts $ [(True, k - 1), (False, i)] |i <- [1..]]
+        filterGroups = [replicate k True]:[map (++ [True]) (MS.permutations . MS.fromCounts $ [(True, k - 1), (False, i)]) | i <- [1 .. ]]
 
 {-
->>> reverse . sort . permutations . fromCounts . map (\(x, c) -> (x - 1, c)) . toCounts $ multiplePrimeFactors 500
-[[4,4,4,1,1],[4,4,1,4,1],[4,4,1,1,4],[4,1,4,4,1],[4,1,4,1,4],[4,1,1,4,4],[1,4,4,4,1],[1,4,4,1,4],[1,4,1,4,4],[1,1,4,4,4]]
+>>> PQ.insert 3 (PQ.singleton 5)
+fromAscList [3,5]
+-}
 
->>> take 10 $ numbersWithNFactors 500
-[62370000,171143280,664115760,792330000,3074610000,8436729840,2674113750,10376808750,28473963210,131823903750]
+{-
+>>> take 50 $ numbersWithNFactors 500
+[62370000,73710000,96390000,107730000,115830000,130410000,151470000,164430000,169290000,171143280,175770000,179010000,200070000,202260240,204930000,209790000,232470000,242190000,243810000,258390000,261630000,264494160,266490000,276210000,295611120,300510000,305370000,316710000,326430000,329670000,334530000,345870000,353970000,357845040,365310000,379890000,383130000,389610000,399330000,402570000,413910000,418770000,426870000,431730000,444972528,446310000,447930000,451195920,452790000,470610000]
 
 [62370000,171143280,664115760,792330000,3074610000,8436729840,2674113750,10376808750,28473963210,131823903750]
 -}
 numbersWithNFactors :: Integer -> [Integer]
-numbersWithNFactors n = concatMap nFactorNums $ kPrimes $ size exponents
+numbersWithNFactors n = fromGroups primeGroups mins PQ.empty
     where
-        exponents = fromCounts . map (\(x, c) -> (x - 1, c)) . toCounts $ multiplePrimeFactors n
-        exponentPerms = sortBy (flip compare) . permutations $ exponents
+        exponents = MS.fromCounts . map (\(x, c) -> (x - 1, c)) . MS.toCounts $ multiplePrimeFactors n
+        numPrimes = MS.size exponents
+        primeGroups = kPrimeGroups numPrimes
+        exponentPerms = sortBy (flip compare) . MS.permutations $ exponents
         nFactorNums ps = map (applyExps ps) exponentPerms
+        -- Minimum values are those with k-1 True's and then all False's except for a last True, this guarantees the
+        mins = tail [applyExps (filterAccordingTo (replicate (numPrimes - 1) True ++ replicate i False ++ [True]) primes) (head exponentPerms) | i <- [0 .. ]]
+
+        fromGroups :: [[[Integer]]] -> [Integer] -> PQ.MinQueue Integer -> [Integer]
+        fromGroups (ps:psg) (m:ms) queue = rs ++ fromGroups psg ms queue'
+            where
+                nums = concatMap nFactorNums ps
+                generator gQueue (v:vs) ret
+                    | (not . PQ.null) gQueue && qv < m && qv < v = generator (PQ.deleteMin gQueue) (v:vs) (qv:ret)
+                    | ((not . PQ.null) gQueue && v < qv) && v < m = generator gQueue vs (v:ret)
+                    | otherwise = generator (PQ.insert v gQueue) vs ret
+                    where
+                        qv = PQ.findMin gQueue
+                generator gQueue [] ret = (sort ret, gQueue)
+                (rs, queue') = generator queue nums []
+        fromGroups _ _ _ = []
