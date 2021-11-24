@@ -123,8 +123,8 @@ applyExps :: (Integral a) => [a] -> [a] -> a
 applyExps ps es = product $ zipWith (^) ps es
 
 {-
->>> numFactors 62370000
-500
+>>> numFactors 163
+2
 -}
 numFactors :: Integer -> Int
 numFactors = product . map (+1) . MS.getCounts . multiplePrimeFactors
@@ -133,13 +133,31 @@ filterAccordingTo :: [Bool] -> [a] -> [a]
 filterAccordingTo bs xs = map snd . filter fst $ zip bs xs
 
 {-
->>> take 3 $ kPrimeGroups 4
-[[[2,3,5,7]],[[2,3,5,11],[2,3,7,11],[2,5,7,11],[3,5,7,11]],[[2,3,5,13],[2,3,11,13],[2,3,7,13],[2,7,11,13],[2,5,7,13],[2,5,11,13],[5,7,11,13],[3,5,7,13],[3,5,11,13],[3,7,11,13]]]
+>>> map length $ take 30 $ [replicate 4 True]:[map (++ [True]) (MS.permutations . MS.fromCounts $ [(True, 4 - 1), (False, i)]) | i <- [1 .. ]]
+[1,4,10,20,35,56,84,120,165,220,286,364,455,560,680,816,969,1140,1330,1540,1771,2024,2300,2600,2925,3276,3654,4060,4495,4960]
+
+
+[
+    [[True,True,True,True]],
+    [[True,True,True,False,True],[True,True,False,True,True],[True,False,True,True,True],[False,True,True,True,True]],
+    [[True,True,True,False,False,True], [True,True,False,True,False,True], [True,False,True,True,False,True], [False,True,True,True,False,True],
+    [True,True,False,False,True,True],
+    [True,False,False,True,True,True],
+    [True,False,True,False,True,True],
+    [False,False,True,True,True,True],
+    [False,True,True,False,True,True],
+    [False,True,False,True,True,True]]
+]
+
+>>> take 5 $ kPrimeGroups 1
+[[[2]],[[3]],[[5]],[[7]],[[11]]]
 
 TODO make filter creation cheaper by simply adding an extra False where it makes sense (i.e. at the right of all True's)
 -}
 kPrimeGroups :: Int -> [[[Integer]]]
-kPrimeGroups k = [[filterAccordingTo filt primes | filt <- filters] | filters <- filterGroups]
+kPrimeGroups k
+    | k == 1 = map (\x -> [[x]]) primes
+    | otherwise = [[filterAccordingTo filt primes | filt <- filters] | filters <- filterGroups]
     where
         filterGroups = [replicate k True]:[map (++ [True]) (MS.permutations . MS.fromCounts $ [(True, k - 1), (False, i)]) | i <- [1 .. ]]
 
@@ -149,10 +167,9 @@ fromAscList [3,5]
 -}
 
 {-
->>> take 50 $ numbersWithNFactors 500
-[62370000,73710000,96390000,107730000,115830000,130410000,151470000,164430000,169290000,171143280,175770000,179010000,200070000,202260240,204930000,209790000,232470000,242190000,243810000,258390000,261630000,264494160,266490000,276210000,295611120,300510000,305370000,316710000,326430000,329670000,334530000,345870000,353970000,357845040,365310000,379890000,383130000,389610000,399330000,402570000,413910000,418770000,426870000,431730000,444972528,446310000,447930000,451195920,452790000,470610000]
+>>> take 50 $ numbersWithNFactors 6
+[12,18,20,28,44,45,50,52,63,68,75,76,92,98,99,116,117,124,147,148,153,164,171,172,175,188,207,212,236,242,244,245,261,268,275,279,284,292,316,325,332,333,338,356,363,369,387,388,404,412]
 
-[62370000,171143280,664115760,792330000,3074610000,8436729840,2674113750,10376808750,28473963210,131823903750]
 -}
 numbersWithNFactors :: Integer -> [Integer]
 numbersWithNFactors n = fromGroups primeGroups mins PQ.empty
@@ -168,13 +185,5 @@ numbersWithNFactors n = fromGroups primeGroups mins PQ.empty
         fromGroups :: [[[Integer]]] -> [Integer] -> PQ.MinQueue Integer -> [Integer]
         fromGroups (ps:psg) (m:ms) queue = rs ++ fromGroups psg ms queue'
             where
-                nums = concatMap nFactorNums ps
-                generator gQueue (v:vs) ret
-                    | (not . PQ.null) gQueue && qv < m && qv < v = generator (PQ.deleteMin gQueue) (v:vs) (qv:ret)
-                    | ((not . PQ.null) gQueue && v < qv) && v < m = generator gQueue vs (v:ret)
-                    | otherwise = generator (PQ.insert v gQueue) vs ret
-                    where
-                        qv = PQ.findMin gQueue
-                generator gQueue [] ret = (sort ret, gQueue)
-                (rs, queue') = generator queue nums []
+                (rs, queue') = PQ.span (<m) $ foldr PQ.insert queue $ concatMap nFactorNums ps
         fromGroups _ _ _ = []
