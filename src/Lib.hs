@@ -1,6 +1,7 @@
 module Lib where
 
 import           Control.Arrow
+import           Data.Array
 import           Data.Function               (fix)
 import           Data.List                   (group, nub)
 import           Data.Maybe                  (fromMaybe)
@@ -226,10 +227,13 @@ numFromList = foldl (\acc n -> (10 * acc) + n) 0
 -}
 listFromNum :: (Integral a) => a -> [a]
 listFromNum = reverse . listFromNum'
-    where 
+    where
         listFromNum' n
             | d > 0 = m:listFromNum' d
             | otherwise = [m]
-            where 
+            where
                 d = div n 10
                 m = mod n 10
+
+tabulate :: Ix i => (i -> e) -> (i, i) -> Array i e
+tabulate f bounds = array bounds [(x, f x) | x <- range bounds]

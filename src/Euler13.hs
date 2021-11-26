@@ -1,3 +1,5 @@
+module Euler13 where
+    
 import           Control.Arrow
 import           Data.Array
 import           Lib           (listFromNum, numFromList)
