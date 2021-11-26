@@ -1,12 +1,15 @@
 module Lib where
 
 import           Control.Arrow
-import           Data.List                   (group)
+import           Data.Function               (fix)
+import           Data.List                   (group, nub)
 import           Data.Maybe                  (fromMaybe)
+import qualified Data.MultiSet               as MS2
 import           Data.Numbers.Primes         (wheelSieve)
 import qualified Data.PQueue.Min             as PQ
-import           Data.Sort                   (sort, sortBy)
-import qualified Math.Combinatorics.Multiset as MS
+import           Data.Sort                   (sort, sortBy, uniqueSort,
+                                              uniqueSortOn)
+import qualified Math.Combinatorics.Multiset as MS1
 
 {-
 >>> take 20 primes
@@ -22,8 +25,8 @@ MS {toCounts = [(2,2),(3,1),(5,1)]}
 >>> multiplePrimeFactors 62370000
 MS {toCounts = [(2,4),(3,4),(5,4),(7,1),(11,1)]}
 -}
-multiplePrimeFactors :: Integer -> MS.Multiset Integer
-multiplePrimeFactors n = MS.fromList $ factor n primes
+multiplePrimeFactors :: Integer -> MS1.Multiset Integer
+multiplePrimeFactors n = MS1.fromList $ factor n primes
                 where
                     factor _ [] = []
                     factor m (p:xs)
@@ -70,8 +73,8 @@ powerset (x:xs) = [x:ps | ps <- psx] ++ psx
 >>> multiPowerSet . fromList $ [2, 2, 5]
 [MS {toCounts = []},MS {toCounts = [(5,1)]},MS {toCounts = [(2,1)]},MS {toCounts = [(2,1),(5,1)]},MS {toCounts = [(2,2)]},MS {toCounts = [(2,2),(5,1)]}]
 -}
-multiPowerSet :: MS.Multiset a -> [MS.Multiset a]
-multiPowerSet ms = concatMap (`MS.kSubsets` ms) [0..MS.size ms]
+multiPowerSet :: MS1.Multiset a -> [MS1.Multiset a]
+multiPowerSet ms = concatMap (`MS1.kSubsets` ms) [0..MS1.size ms]
 
 {-
 >>> splits  . fromList $ [5, 5, 2]
@@ -81,7 +84,7 @@ multiPowerSet ms = concatMap (`MS.kSubsets` ms) [0..MS.size ms]
 [1,2,3,4,5,6,10,12,15,20,30,60]
 -}
 factors :: Integer -> [Integer]
-factors = sort . map (product . MS.toList) . multiPowerSet . multiplePrimeFactors
+factors = sort . map (product . MS1.toList) . multiPowerSet . multiplePrimeFactors
 
 fillOffsetZip :: Int -> [a] -> [(Maybe a, a)]
 fillOffsetZip length values = zip (replicate length Nothing ++ map Just values) values
@@ -123,11 +126,11 @@ applyExps :: (Integral a) => [a] -> [a] -> a
 applyExps ps es = product $ zipWith (^) ps es
 
 {-
->>> numFactors 163
-2
+>>> numFactors 76576500
+576
 -}
 numFactors :: Integer -> Int
-numFactors = product . map (+1) . MS.getCounts . multiplePrimeFactors
+numFactors = product . map (+1) . MS1.getCounts . multiplePrimeFactors
 
 filterAccordingTo :: [Bool] -> [a] -> [a]
 filterAccordingTo bs xs = map snd . filter fst $ zip bs xs
@@ -159,25 +162,51 @@ kPrimeGroups k
     | k == 1 = map (\x -> [[x]]) primes
     | otherwise = [[filterAccordingTo filt primes | filt <- filters] | filters <- filterGroups]
     where
-        filterGroups = [replicate k True]:[map (++ [True]) (MS.permutations . MS.fromCounts $ [(True, k - 1), (False, i)]) | i <- [1 .. ]]
+        filterGroups = [replicate k True]:[map (++ [True]) (MS1.permutations . MS1.fromCounts $ [(True, k - 1), (False, i)]) | i <- [1 .. ]]
+
+ms2ToMS1 :: MS2.MultiSet a -> MS1.Multiset a
+ms2ToMS1 = MS1.MS . MS2.toOccurList
+
+ms1ToMS2 :: (Ord a) => MS1.Multiset a -> MS2.MultiSet a
+ms1ToMS2 = foldr (\(x, n) m -> MS2.insertMany x n m) MS2.empty . MS1.toCounts
 
 {-
->>> PQ.insert 3 (PQ.singleton 5)
-fromAscList [3,5]
+>>> kSplits 2 . multiplePrimeFactors $ 576
+[(MS {toCounts = [(3,2)]},MS {toCounts = [(2,6)]}),(MS {toCounts = [(2,1),(3,1)]},MS {toCounts = [(2,5),(3,1)]}),(MS {toCounts = [(2,2)]},MS {toCounts = [(2,4),(3,2)]})]
 -}
+kSplits :: Ord a => Int -> MS1.Multiset a -> [(MS1.Multiset a, MS1.Multiset a)]
+kSplits 0 ms              = [(MS1.emptyMS, ms)]
+kSplits _ (MS1.MS [])        = []
+kSplits k ms
+    | k > MS1.size ms = []
+    | otherwise = [(ms1, diff ms1) | ms1 <- MS1.kSubsets k ms]
+    where
+        ms' = ms1ToMS2 ms
+        diff = ms2ToMS1 . MS2.difference ms' . ms1ToMS2
+
+
+fromPrimeFactors :: MS1.Multiset Integer -> Integer
+fromPrimeFactors = product . map (uncurry (^)) . MS1.toCounts
 
 {-
->>> take 50 $ numbersWithNFactors 6
-[12,18,20,28,44,45,50,52,63,68,75,76,92,98,99,116,117,124,147,148,153,164,171,172,175,188,207,212,236,242,244,245,261,268,275,279,284,292,316,325,332,333,338,356,363,369,387,388,404,412]
+>>> multiplicativePartitions 576
+[MS {toCounts = [(3,2),(2,6)]},MS {toCounts = [(3,2),(2,4),(4,1)]},MS {toCounts = [(3,2),(2,3),(8,1)]},MS {toCounts = [(3,2),(2,2),(4,2)]},MS {toCounts = [(3,2),(2,2),(16,1)]},MS {toCounts = [(3,2),(2,1),(4,1),(8,1)]},MS {toCounts = [(3,2),(2,1),(32,1)]},MS {toCounts = [(3,2),(4,3)]},MS {toCounts = [(3,2),(4,1),(16,1)]},MS {toCounts = [(3,2),(8,2)]},MS {toCounts = [(3,2),(64,1)]},MS {toCounts = [(3,1),(2,5),(6,1)]},MS {toCounts = [(3,1),(2,4),(12,1)]},MS {toCounts = [(3,1),(2,3),(6,1),(4,1)]},MS {toCounts = [(3,1),(2,3),(24,1)]},MS {toCounts = [(3,1),(2,2),(6,1),(8,1)]},MS {toCounts = [(3,1),(2,2),(4,1),(12,1)]},MS {toCounts = [(3,1),(2,2),(48,1)]},MS {toCounts = [(3,1),(2,1),(6,1),(4,2)]},MS {toCounts = [(3,1),(2,1),(6,1),(16,1)]},MS {toCounts = [(3,1),(2,1),(4,1),(24,1)]},MS {toCounts = [(3,1),(2,1),(12,1),(8,1)]},MS {toCounts = [(3,1),(2,1),(96,1)]},MS {toCounts = [(3,1),(6,1),(4,1),(8,1)]},MS {toCounts = [(3,1),(6,1),(32,1)]},MS {toCounts = [(3,1),(4,2),(12,1)]},MS {toCounts = [(3,1),(4,1),(48,1)]},MS {toCounts = [(3,1),(12,1),(16,1)]},MS {toCounts = [(3,1),(8,1),(24,1)]},MS {toCounts = [(3,1),(192,1)]},MS {toCounts = [(9,1),(2,6)]},MS {toCounts = [(9,1),(2,4),(4,1)]},MS {toCounts = [(9,1),(2,3),(8,1)]},MS {toCounts = [(9,1),(2,2),(4,2)]},MS {toCounts = [(9,1),(2,2),(16,1)]},MS {toCounts = [(9,1),(2,1),(4,1),(8,1)]},MS {toCounts = [(9,1),(2,1),(32,1)]},MS {toCounts = [(9,1),(4,3)]},MS {toCounts = [(9,1),(4,1),(16,1)]},MS {toCounts = [(9,1),(8,2)]},MS {toCounts = [(9,1),(64,1)]},MS {toCounts = [(2,5),(18,1)]},MS {toCounts = [(2,4),(6,2)]},MS {toCounts = [(2,4),(36,1)]},MS {toCounts = [(2,3),(6,1),(12,1)]},MS {toCounts = [(2,3),(18,1),(4,1)]},MS {toCounts = [(2,3),(72,1)]},MS {toCounts = [(2,2),(6,2),(4,1)]},MS {toCounts = [(2,2),(6,1),(24,1)]},MS {toCounts = [(2,2),(18,1),(8,1)]},MS {toCounts = [(2,2),(4,1),(36,1)]},MS {toCounts = [(2,2),(12,2)]},MS {toCounts = [(2,2),(144,1)]},MS {toCounts = [(2,1),(6,2),(8,1)]},MS {toCounts = [(2,1),(6,1),(4,1),(12,1)]},MS {toCounts = [(2,1),(6,1),(48,1)]},MS {toCounts = [(2,1),(18,1),(4,2)]},MS {toCounts = [(2,1),(18,1),(16,1)]},MS {toCounts = [(2,1),(4,1),(72,1)]},MS {toCounts = [(2,1),(12,1),(24,1)]},MS {toCounts = [(2,1),(36,1),(8,1)]},MS {toCounts = [(2,1),(288,1)]},MS {toCounts = [(6,2),(4,2)]},MS {toCounts = [(6,2),(16,1)]},MS {toCounts = [(6,1),(4,1),(24,1)]},MS {toCounts = [(6,1),(12,1),(8,1)]},MS {toCounts = [(6,1),(96,1)]},MS {toCounts = [(18,1),(4,1),(8,1)]},MS {toCounts = [(18,1),(32,1)]},MS {toCounts = [(4,2),(36,1)]},MS {toCounts = [(4,1),(12,2)]},MS {toCounts = [(4,1),(144,1)]},MS {toCounts = [(12,1),(48,1)]},MS {toCounts = [(36,1),(16,1)]},MS {toCounts = [(8,1),(72,1)]},MS {toCounts = [(24,2)]},MS {toCounts = [(576,1)]}]
+-}
+multiplicativePartitions :: Integer -> [MS1.Multiset Integer]
+multiplicativePartitions = reverse . map (MS1.fromCounts . map (first fromPrimeFactors) . MS1.toCounts) . MS1.partitions . multiplePrimeFactors
+
+{-
+>>> take 15 $ numbersWithNFactors 576
+[58198140,70450380,78738660,88828740,94954860,96996900,99279180,102965940,106126020,113333220,117417300,120180060,121687020,125585460,126666540]
 
 -}
 numbersWithNFactors :: Integer -> [Integer]
 numbersWithNFactors n = fromGroups primeGroups mins PQ.empty
     where
-        exponents = MS.fromCounts . map (\(x, c) -> (x - 1, c)) . MS.toCounts $ multiplePrimeFactors n
-        numPrimes = MS.size exponents
+        exponents = MS1.fromCounts . map (\(x, c) -> (x - 1, c)) . MS1.toCounts . multiplePrimeFactors $ n
+        numPrimes = MS1.size exponents
         primeGroups = kPrimeGroups numPrimes
-        exponentPerms = sortBy (flip compare) . MS.permutations $ exponents
+        exponentPerms = sortBy (flip compare) . MS1.permutations $ exponents
         nFactorNums ps = map (applyExps ps) exponentPerms
         -- Minimum values are those with k-1 True's and then all False's except for a last True, this guarantees the
         mins = tail [applyExps (filterAccordingTo (replicate (numPrimes - 1) True ++ replicate i False ++ [True]) primes) (head exponentPerms) | i <- [0 .. ]]
@@ -187,3 +216,20 @@ numbersWithNFactors n = fromGroups primeGroups mins PQ.empty
             where
                 (rs, queue') = PQ.span (<m) $ foldr PQ.insert queue $ concatMap nFactorNums ps
         fromGroups _ _ _ = []
+
+numFromList :: (Num a) => [a] -> a
+numFromList = foldl (\acc n -> (10 * acc) + n) 0
+
+{-
+>>> listFromNum 123
+[1,2,3]
+-}
+listFromNum :: (Integral a) => a -> [a]
+listFromNum = reverse . listFromNum'
+    where 
+        listFromNum' n
+            | d > 0 = m:listFromNum' d
+            | otherwise = [m]
+            where 
+                d = div n 10
+                m = mod n 10
