@@ -234,6 +234,17 @@ listFromNum = reverse . listFromNum'
             where
                 d = div n 10
                 m = mod n 10
+{-
+>>> apply 5 (*2) 2
+64
+-}
+apply :: (Eq t, Num t) => t -> (b -> b) -> b -> b
+apply 0 _ = id
+apply n f = f . apply (n-1) f
 
-tabulate :: Ix i => (i -> e) -> (i, i) -> Array i e
-tabulate f bounds = array bounds [(x, f x) | x <- range bounds]
+{-
+>>> choose 4 2
+6
+-}
+choose :: Int -> Int -> Int
+choose n k = head (apply (n-k) (scanr1 (+)) (replicate (k+1) 1))

@@ -4,7 +4,6 @@ import           Control.Arrow (Arrow ((***)))
 import           Data.Array    (Array, elems, listArray, (!))
 import           Data.Function (on)
 import           Data.List     (maximumBy)
-import           Lib           (tabulate)
 
 {-
 >>> collatz 4
