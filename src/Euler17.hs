@@ -16,6 +16,7 @@ decompose x
     | x > 100 && x <= 999          =
         one !! (firstDigit x-1) ++ "hundredand" ++decompose ( x - firstDigit x * 100)
     | x == 1000                    = "onethousand"
+    | otherwise = []
 
   where firstDigit x = digitToInt . head . show $ x
 

@@ -2,8 +2,8 @@ module Lib where
 
 import           Control.Arrow
 import           Data.Array
-import           Data.Function               (fix)
-import           Data.List                   (group, nub)
+import           Data.Function               (fix, on)
+import           Data.List                   (group, nub, tails)
 import           Data.Maybe                  (fromMaybe)
 import qualified Data.MultiSet               as MS2
 import           Data.Numbers.Primes         (wheelSieve)
@@ -11,6 +11,7 @@ import qualified Data.PQueue.Min             as PQ
 import           Data.Sort                   (sort, sortBy, uniqueSort,
                                               uniqueSortOn)
 import qualified Math.Combinatorics.Multiset as MS1
+import Data.Foldable (maximumBy)
 
 {-
 >>> take 20 primes
@@ -248,3 +249,9 @@ apply n f = f . apply (n-1) f
 -}
 choose :: Int -> Int -> Int
 choose n k = head (apply (n-k) (scanr1 (+)) (replicate (k+1) 1))
+
+windows :: Int -> [a] -> [[a]]
+windows m = foldr (zipWith (:)) (repeat []) . take m . tails
+
+maximumOn :: (Foldable t, Ord a1) => (a2 -> a1) -> t a2 -> a2
+maximumOn key = maximumBy (compare `on` key)

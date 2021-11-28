@@ -34,11 +34,13 @@ library
       Euler15
       Euler16
       Euler17
+      Euler18
       Euler2
       Euler3
       Euler4
       Euler5
       Euler6
+      Euler67
       Euler7
       Euler8
       Euler9
@@ -56,6 +58,7 @@ library
     , pqueue >=1.4.1.3
     , primes >=0.2.1.0
     , sort >=1.0.0.0
+    , split >=0.2.3.3
   default-language: Haskell2010
 
 executable euler-exe
@@ -75,6 +78,7 @@ executable euler-exe
     , pqueue >=1.4.1.3
     , primes >=0.2.1.0
     , sort >=1.0.0.0
+    , split >=0.2.3.3
   default-language: Haskell2010
 
 test-suite euler-test
@@ -95,4 +99,5 @@ test-suite euler-test
     , pqueue >=1.4.1.3
     , primes >=0.2.1.0
     , sort >=1.0.0.0
+    , split >=0.2.3.3
   default-language: Haskell2010
