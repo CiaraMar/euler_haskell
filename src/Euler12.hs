@@ -1,6 +1,9 @@
 module Euler12 where
-
-import           Lib (factors, primes, numFactors, multiplePrimeFactors)
+import           Control.Arrow               (Arrow (second, (&&&), (***)))
+import           Lib                         (factors, multiplePrimeFactors,
+                                              numFactors, numbersWithNFactors,
+                                              primes)
+import qualified Math.Combinatorics.Multiset as MS1
 
 triangle :: Integral a => a -> a
 triangle n = (n * (n + 1)) `div` 2
@@ -17,7 +20,7 @@ This can be abstracted just to work with a starting list of n 2's, then slowly r
 
 We convert 500 into it's multiset of prime factors
 Then convert those to the minimum number that would be made if those were the multiplicities (+1) of the prime factors of our target number
->>> primeExponentsToNumber . reverse . multiplePrimeFactors $ 500  
+>>> primeExponentsToNumber . reverse . multiplePrimeFactors $ 500
 Couldn't match type ‘Multiset Integer’ with ‘[Integer]’
 Expected type: Integer -> [Integer]
   Actual type: Integer -> Multiset Integer
@@ -44,7 +47,7 @@ minimumNumberByNumberOfFactors = product . firstNPrimes . floor . logBase 2 . fr
 [9699810,19399620,38799240,77598480,155196960,310393920]
 -}
 findEuler12 target = heuristic (firstNPrimes 8) start
-    where 
+    where
         start = nearestTriangle . minimumNumberByNumberOfFactors $ target
         heuristic [] n = [n]
         heuristic (p:candidates) n
@@ -52,11 +55,19 @@ findEuler12 target = heuristic (firstNPrimes 8) start
             | otherwise = n:heuristic candidates (nearestTriangle (n `div` p))
 
 primeExponentsToNumber :: [Integer] -> Integer
-primeExponentsToNumber = product . zipWith (^) primes . map pred 
+primeExponentsToNumber = product . zipWith (^) primes . map pred
+
+triangleDivisors :: MS1.Multiset Integer -> MS1.Count
+triangleDivisors = product . map (\(x, n) -> if x == 2 then n else n+1) . MS1.toCounts
 
 {-
 >>> euler12
-76576500
+(76576500,576)
 -}
-euler12 :: Integer
-euler12 = head . filter ((>500) . numFactors) . map triangle $ [4404..]
+
+euler12 :: (Integer, Int)
+euler12 = head . dropWhile ((<500) . snd) $ triangleWithFactors
+    where
+        factorCounts = map (id &&& multiplePrimeFactors) [triangleToN . head . numbersWithNFactors $ 500..]
+        makeTriangleWithFactors (n, fac) (n', fac') = (div (n * n') 2, triangleDivisors (MS1.disjUnion fac fac'))
+        triangleWithFactors = zipWith makeTriangleWithFactors factorCounts (tail factorCounts)
